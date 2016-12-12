@@ -689,6 +689,8 @@ $(document).ready(function() {
 			listUnspentChainso_Dogecoin(redeem);
 		}  else if(host=='cryptoid.info_carboncoin'){
 			listUnspentCryptoidinfo_Carboncoin(redeem);
+		}  else if(host=='cryptoid.info_shadowcash'){
+			listUnspentCryptoidinfo_ShadowCash(redeem);
 		} else {
 			listUnspentDefault(redeem);
 		}
@@ -906,7 +908,38 @@ $(document).ready(function() {
 				totalInputAmount();
 			}
 		});
-
+		
+	/* retrieve unspent data from cryptoid for shadowcash */
+	function listUnspentCryptoidinfo_ShadowCash(redeem) {
+		
+		$.ajax ({
+			type: "POST",
+			url: "https://coinb.in/api/",
+			data: 'uid='+coinjs.uid+'&key='+coinjs.key+'&setmodule=shadowcash&request=listunspent&address='+redeem.addr,
+			dataType: "xml",
+			error: function() {
+				$("#redeemFromStatus").removeClass('hidden').html('<span class="glyphicon glyphicon-exclamation-sign"></span> Unexpected error, unable to retrieve unspent outputs!');
+			},
+                        success: function(data) {
+				if($(data).find("result").text()==1){
+					$("#redeemFromAddress").removeClass('hidden').html('<span class="glyphicon glyphicon-info-sign"></span> Retrieved unspent inputs from address <a href="https://btc.blockr.io/address/info/'+redeem.addr+'" target="_blank">'+redeem.addr+'</a>');
+					$.each($(data).find("unspent").children(), function(i,o){
+						var tx = $(o).find("tx_hash").text();
+						var n = $(o).find("tx_output_n").text();
+						var script = (redeem.isMultisig==true) ? $("#redeemFrom").val() : o.script_hex;
+						var amount = (($(o).find("value").text()*1)/100000000).toFixed(8);
+						addOutput(tx, n, script, amount);
+					});
+				} else {
+					$("#redeemFromStatus").removeClass('hidden').html('<span class="glyphicon glyphicon-exclamation-sign"></span> Unexpected error, unable to retrieve unspent outputs.');
+				}
+			},
+			complete: function(data, status) {
+				$("#redeemFromBtn").html("Load").attr('disabled',false);
+				totalInputAmount();
+			}
+		});
+		
 
 	/*	$.ajax ({
 			type: "POST",
@@ -1054,6 +1087,33 @@ $(document).ready(function() {
 		$.ajax ({
 			type: "POST",
 			url: coinjs.host+'?uid='+coinjs.uid+'&key='+coinjs.key+'&setmodule=carboncoin&request=sendrawtransaction',
+			data: {'rawtx':$("#rawTransaction").val()},
+			dataType: "xml",
+			error: function(data) {
+				$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').removeClass("hidden").html(" There was an error submitting your request, please try again").prepend('<span class="glyphicon glyphicon-exclamation-sign"></span>');
+			},
+                        success: function(data) {
+				$("#rawTransactionStatus").html(unescape($(data).find("response").text()).replace(/\+/g,' ')).removeClass('hidden');
+				if($(data).find("result").text()==1){
+					$("#rawTransactionStatus").addClass('alert-success').removeClass('alert-danger');
+					$("#rawTransactionStatus").html('txid: '+$(data).find("txid").text());
+				} else {
+					$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').prepend('<span class="glyphicon glyphicon-exclamation-sign"></span> ');
+				}
+			},
+			complete: function(data, status) {
+				$("#rawTransactionStatus").fadeOut().fadeIn();
+				$(thisbtn).val('Submit').attr('disabled',false);				
+			}
+		});
+	}
+
+	// broadcast transaction via cryptoid for ShadowCash
+	function rawSubmitcryptoid_ShadowCash(thisbtn) {
+		$(thisbtn).val('Please wait, loading...').attr('disabled',true);
+		$.ajax ({
+			type: "POST",
+			url: coinjs.host+'?uid='+coinjs.uid+'&key='+coinjs.key+'&setmodule=shadowcash&request=sendrawtransaction',
 			data: {'rawtx':$("#rawTransaction").val()},
 			dataType: "xml",
 			error: function(data) {
@@ -1696,6 +1756,10 @@ $(document).ready(function() {
 		} else if(host=="cryptoid.info_carboncoin"){
 			$("#rawSubmitBtn").click(function(){
 				rawSubmitcryptoid_Carboncoin(this);
+			});
+		} else if(host=="cryptoid.info_shadowcash"){
+			$("#rawSubmitBtn").click(function(){
+				rawSubmitcryptoid_ShadowCash(this);
 			});
 		} else {
 			$("#rawSubmitBtn").click(function(){
